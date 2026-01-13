@@ -1,5 +1,6 @@
 package com.douradelivery.after.service;
 
+import com.douradelivery.after.exception.BusinessException;
 import com.douradelivery.after.model.user.dto.UserCreateRequestDTO;
 import com.douradelivery.after.model.user.dto.UserResponseDTO;
 import com.douradelivery.after.model.user.dto.UserUpdatePasswordRequestDTO;
@@ -22,15 +23,15 @@ public class UserService {
     public UserResponseDTO createUser(UserCreateRequestDTO request) {
 
         if (!CpfValidator.isValid(request.cpf())) {
-            throw new IllegalArgumentException("invalid CPF");
+            throw new BusinessException("invalid CPF");
         }
 
         if (userRepository.existsByCpf(request.cpf())) {
-            throw new IllegalArgumentException("CPF already exists");
+            throw new BusinessException("CPF already exists");
         }
 
         if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email already exists");
+            throw new BusinessException("Email already exists");
         }
 
         User user = User.builder()
@@ -73,7 +74,7 @@ public class UserService {
 
     public void updatePassword(User user, UserUpdatePasswordRequestDTO dto) {
         if (!passwordEncoder.matches(dto.currentPassword(), user.getPassword())) {
-            throw new RuntimeException("Current password doesn't match");
+            throw new BusinessException("Current password doesn't match");
         }
 
         user.setPassword(passwordEncoder.encode(dto.newPassword()));

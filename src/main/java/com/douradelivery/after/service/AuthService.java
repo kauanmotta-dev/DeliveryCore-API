@@ -1,6 +1,7 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.config.jwt.JwtService;
+import com.douradelivery.after.exception.BusinessException;
 import com.douradelivery.after.model.auth.dto.AuthRequestDTO;
 import com.douradelivery.after.model.auth.dto.AuthResponseDTO;
 import com.douradelivery.after.model.user.entity.User;
@@ -20,10 +21,10 @@ public class AuthService {
     public AuthResponseDTO login(AuthRequestDTO request) {
 
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Credenciais inválidas"));
+                .orElseThrow(() -> new BusinessException("Credenciais inválidas"));
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new RuntimeException("Credenciais inválidas");
+            throw new BusinessException("Credenciais inválidas");
         }
 
         String token = jwtService.generateToken(user);
