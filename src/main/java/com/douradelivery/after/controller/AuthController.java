@@ -1,5 +1,6 @@
 package com.douradelivery.after.controller;
 
+import com.douradelivery.after.exception.response.ApiResponse;
 import com.douradelivery.after.model.auth.dto.AuthRequestDTO;
 import com.douradelivery.after.model.auth.dto.AuthResponseDTO;
 import com.douradelivery.after.service.AuthService;
@@ -23,9 +24,9 @@ public class AuthController {
 
     @Operation(summary = "Login do usuário")
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(
+    public ApiResponse<AuthResponseDTO> login(
             @RequestBody @Valid AuthRequestDTO request) {
 
-        return ResponseEntity.ok(authService.login(request));
+        return ApiResponse.success(authService.login(request));
     }
 }

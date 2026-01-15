@@ -10,8 +10,12 @@ import com.douradelivery.after.model.user.entity.UserRole;
 import com.douradelivery.after.repository.UserRepository;
 import com.douradelivery.after.util.CpfValidator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -76,8 +80,44 @@ public class UserService {
         if (!passwordEncoder.matches(dto.currentPassword(), user.getPassword())) {
             throw new BusinessException("Current password doesn't match");
         }
+        if (passwordEncoder.matches(dto.newPassword(), user.getPassword())) {
+            throw new BusinessException("New password must be different from current password");
+        }
 
         user.setPassword(passwordEncoder.encode(dto.newPassword()));
         userRepository.save(user);
     }
+
+    private User getLoggedUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) auth.getPrincipal();
+
+        if (!user.isEnabled()) {
+            throw new BusinessException("User is inactive");
+        }
+
+        return user;
+    }
+
+
+    // ADMIN -----------------------------------------------------------------------
+
+    public List<UserResponseDTO> listAll() {
+        return userRepository.findAll()
+                .stream()
+                .map(this::getMe)
+                .toList();
+    }
+
+
+    public void changeUserStatus(Long id, boolean status) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("User not found"));
+
+        user.setActive(status);
+        userRepository.save(user);
+    }
+
+
+
 }
