@@ -1,7 +1,7 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.config.jwt.JwtService;
-import com.douradelivery.after.exception.BusinessException;
+import com.douradelivery.after.exception.exceptions.BusinessException;
 import com.douradelivery.after.model.auth.dto.AuthRequestDTO;
 import com.douradelivery.after.model.auth.dto.AuthResponseDTO;
 import com.douradelivery.after.model.user.entity.User;
@@ -9,8 +9,10 @@ import com.douradelivery.after.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class AuthService {
 

@@ -1,28 +1,16 @@
 package com.douradelivery.after.exception.response;
 
+import lombok.Builder;
+import lombok.Getter;
+
 import java.time.LocalDateTime;
 
+@Getter
+@Builder
 public class ApiErrorResponse {
 
-    private boolean success = false;
+    private boolean success;
     private String message;
     private LocalDateTime timestamp;
 
-    public ApiErrorResponse(String message) {
-        this.message = message;
-        this.timestamp = LocalDateTime.now();
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
 }
-

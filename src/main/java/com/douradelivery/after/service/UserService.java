@@ -1,12 +1,12 @@
 package com.douradelivery.after.service;
 
-import com.douradelivery.after.exception.BusinessException;
+import com.douradelivery.after.exception.exceptions.BusinessException;
 import com.douradelivery.after.model.user.dto.UserCreateRequestDTO;
 import com.douradelivery.after.model.user.dto.UserResponseDTO;
 import com.douradelivery.after.model.user.dto.UserUpdatePasswordRequestDTO;
 import com.douradelivery.after.model.user.dto.UserUpdateResquestXXXXXXXXXXX;
 import com.douradelivery.after.model.user.entity.User;
-import com.douradelivery.after.model.user.entity.UserRole;
+import com.douradelivery.after.model.user.enums.UserRole;
 import com.douradelivery.after.repository.UserRepository;
 import com.douradelivery.after.util.CpfValidator;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +14,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class UserService {
 
@@ -57,7 +59,7 @@ public class UserService {
                 savedUser.getRole()
         );
     }
-
+    @Transactional(readOnly = true)
     public UserResponseDTO getMe(User user) {
         return new UserResponseDTO(
                 user.getId(),
@@ -88,20 +90,8 @@ public class UserService {
         userRepository.save(user);
     }
 
-    private User getLoggedUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) auth.getPrincipal();
-
-        if (!user.isEnabled()) {
-            throw new BusinessException("User is inactive");
-        }
-
-        return user;
-    }
-
-
     // ADMIN -----------------------------------------------------------------------
-
+    @Transactional(readOnly = true)
     public List<UserResponseDTO> listAll() {
         return userRepository.findAll()
                 .stream()

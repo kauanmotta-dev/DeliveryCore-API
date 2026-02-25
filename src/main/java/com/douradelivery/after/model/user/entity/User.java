@@ -1,12 +1,12 @@
 package com.douradelivery.after.model.user.entity;
 
+import com.douradelivery.after.model.user.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 
@@ -42,6 +42,11 @@ public class User implements UserDetails{
     @Column(nullable = false)
     private Boolean active = true;
 
+    @Column(nullable = false)
+    private int clientPenaltyCount = 0;
+
+    @Column(nullable = false)
+    private int deliverymanPenaltyCount = 0;
 
 
 
@@ -71,8 +76,6 @@ public class User implements UserDetails{
     }
 
     @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    public boolean isEnabled() { return active; }
 
 }

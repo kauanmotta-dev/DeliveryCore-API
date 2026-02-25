@@ -1,53 +1,67 @@
 package com.douradelivery.after.exception;
 
-import com.douradelivery.after.exception.response.ApiErrorResponse;
+import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.exception.exceptions.ResourceNotFoundException;
+import com.douradelivery.after.exception.response.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.time.LocalDateTime;
-import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<?> handleNotFound(ResourceNotFoundException ex) {
-        return ResponseEntity.
-                status(HttpStatus.NOT_FOUND)
-                .body(new ApiErrorResponse(ex.getMessage()));
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiErrorResponse> handleBusinessException(BusinessException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
         return ResponseEntity
                 .badRequest()
-                .body(new ApiErrorResponse(ex.getMessage()));
+                .body(ApiResponse.error(ex.getMessage()));
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGeneric(Exception ex) {
+    // 🔥 AQUI ESTÁ O QUE FALTAVA
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException ex) {
+
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation error");
+
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiErrorResponse(ex.getMessage()));
+                .badRequest()
+                .body(ApiResponse.error(message));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
-                .body(new ApiErrorResponse("Access denied"));
+                .body(ApiResponse.error("Access denied"));
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<?> handleAuthentication(AuthenticationException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex) {
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body("Authentication required");
+                .body(ApiResponse.error("Authentication required"));
     }
 
-
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Internal server error"));
+    }
 }
