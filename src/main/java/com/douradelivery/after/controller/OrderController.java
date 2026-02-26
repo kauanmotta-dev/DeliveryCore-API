@@ -25,9 +25,9 @@ public class OrderController {
     @Operation(summary = "Cliente cria o pedido pré-pago")
     @PreAuthorize("hasRole('CLIENT')")
     @PostMapping("/create/pré-pago")
-    public ApiResponse<OrderResponseDTO> createPrePaid(
+    public ApiResponse<OrderResponseDTO> create(
             @AuthenticationPrincipal User user,
-            @RequestBody @Valid OrderCreateWithPaymentRequestDTO dto
+            @RequestBody @Valid OrderCreateRequestDTO dto
     ) {
         return ApiResponse.success(orderService.createOrder(user, dto));
     }

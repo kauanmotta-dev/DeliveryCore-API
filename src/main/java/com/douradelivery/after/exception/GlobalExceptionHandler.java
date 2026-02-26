@@ -3,6 +3,7 @@ package com.douradelivery.after.exception;
 import com.douradelivery.after.exception.exceptions.BusinessException;
 import com.douradelivery.after.exception.exceptions.ResourceNotFoundException;
 import com.douradelivery.after.exception.response.ApiResponse;
+import jakarta.persistence.OptimisticLockException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -63,5 +64,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("Internal server error"));
+    }
+
+    @ExceptionHandler(OptimisticLockException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(OptimisticLockException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error("Order is no longer available"));
     }
 }

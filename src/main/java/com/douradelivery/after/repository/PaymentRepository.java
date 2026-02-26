@@ -13,8 +13,6 @@ import java.util.Optional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Payment> findById(Long id);
 
     Optional<Payment> findByOrder(Order order);
 

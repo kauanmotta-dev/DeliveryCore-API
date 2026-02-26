@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -30,6 +31,7 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final WebhookValidator webhookValidator;
     private final NotificationService notificationService;
+    private final OrderService orderService;
 
     @Transactional(readOnly = true)
     private PaymentResponseDTO toResponse(Payment payment) {
@@ -45,16 +47,16 @@ public class PaymentService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
 
-        if (paymentRepository.findByOrder(order).isPresent()) {
-            throw new BusinessException("Payment already exists for this order");
-        }
-
         if (!order.getClient().getId().equals(client.getId())) {
             throw new BusinessException("You can only pay your own orders");
         }
 
-        if (order.getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException("Cannot pay a canceled order");
+        if (order.getStatus() != OrderStatus.WAITING_PAYMENT) {
+            throw new BusinessException("Order is not waiting for payment");
+        }
+
+        if (paymentRepository.findByOrder(order).isPresent()) {
+            throw new BusinessException("Payment already exists for this order");
         }
 
         if (!dto.paymentMethod().isEnabled()) {
@@ -68,46 +70,29 @@ public class PaymentService {
         payment.setAmount(dto.amount());
         payment.setCreatedAt(LocalDateTime.now());
 
-        notificationService.notifyOrderEvent(
-                payment.getOrder(),
-                OrderEventType.PAYMENT_PENDING
-        );
-        return toResponse(paymentRepository.save(payment));
+        paymentRepository.save(payment);
+
+        return toResponse(payment);
     }
 
-    public void refundPayment(Order order, BigDecimal feePercentage) {
+    public void processRefund(Order order, BigDecimal feePercentage) {
 
         Payment payment = paymentRepository.findByOrder(order)
-                .orElse(null);
-
-        if (payment == null) {
-            return;
-        }
-
-        if (payment.getStatus() == PaymentStatus.REFUNDED) {
-            return; // idempotente
-        }
-
-        if (payment.getStatus() != PaymentStatus.PAID) {
-            throw new BusinessException("Payment is not refundable");
-        }
+                .orElseThrow(() -> new BusinessException("Payment not found"));
 
         BigDecimal amount = payment.getAmount();
 
-        BigDecimal feeAmount = amount.multiply(feePercentage);
-        BigDecimal refundedAmount = amount.subtract(feeAmount);
+        BigDecimal feeAmount = amount.multiply(feePercentage)
+                .setScale(2, RoundingMode.HALF_UP);
 
-        payment.setFeeAmount(feeAmount);
-        payment.setRefundedAmount(refundedAmount);
-        payment.setStatus(PaymentStatus.REFUNDED);
-        payment.setRefundedAt(LocalDateTime.now());
+        BigDecimal refundedAmount = amount.subtract(feeAmount)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        payment.refund(refundedAmount, feeAmount);
 
         paymentRepository.save(payment);
 
-        notificationService.notifyOrderEvent(
-                payment.getOrder(),
-                OrderEventType.PAYMENT_REFUNDED
-        );
+        order.markAsRefunded();
     }
 
     public void handlePixWebhook(PaymentWebhookRequestDTO event) {
@@ -115,34 +100,20 @@ public class PaymentService {
         webhookValidator.validate(event.secret());
 
         if (!"PAYMENT_CONFIRMED".equals(event.status())) {
-            return; // ignorar eventos que não interessam
+            return;
         }
 
         Payment payment = paymentRepository.findById(event.paymentId())
                 .orElseThrow(() -> new BusinessException("Payment not found"));
 
-        // idempotência
-        if (payment.getStatus() == PaymentStatus.PAID) {
-            return;
+        if (payment.getStatus() == PaymentStatus.CONFIRMED) {
+            return; // idempotente
         }
 
-        if (payment.getOrder().getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException("Order is canceled");
-        }
-
-        if (payment.getAmount().compareTo(event.amount()) != 0) {
-            throw new BusinessException("Invalid payment amount");
-        }
-
-        payment.setStatus(PaymentStatus.PAID);
-        payment.setPaidAt(LocalDateTime.now());
-
+        payment.confirm();
         paymentRepository.save(payment);
 
-        notificationService.notifyOrderEvent(
-                payment.getOrder(),
-                OrderEventType.PAYMENT_CONFIRMED
-        );
+        orderService.markAsPaid(payment.getOrder().getId());
     }
 }
 

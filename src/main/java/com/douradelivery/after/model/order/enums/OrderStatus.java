@@ -1,9 +1,11 @@
 package com.douradelivery.after.model.order.enums;
 
 public enum OrderStatus {
-    CREATED,
+    WAITING_PAYMENT,
+    AVAILABLE,
     ACCEPTED,
     IN_DELIVERY,
     DELIVERED,
-    CANCELED
+    CANCELED,
+    REFUNDED
 }

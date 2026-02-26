@@ -5,7 +5,6 @@ import com.douradelivery.after.model.order.enums.CancelReason;
 import com.douradelivery.after.model.order.enums.CanceledBy;
 import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.entity.Payment;
-import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -13,39 +12,37 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Set;
-
-import static com.douradelivery.after.model.order.enums.OrderStatus.*;
 
 @Entity
-@Getter
-@Setter
 @Table(name = "orders")
+@Getter
 public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "client_id", nullable = false)
+    @Version
+    private Long version;
+
+    @Setter
+    @ManyToOne(optional = false)
     private User client;
 
     @ManyToOne
-    @JoinColumn(name = "deliveryman_id")
     private User deliveryman;
 
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
     private Payment payment;
 
-    private String originAddress;
-    private String destinationAddress;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Setter(AccessLevel.NONE)
     private OrderStatus status;
+
+    @Setter
+    private String originAddress;
+    @Setter
+    private String destinationAddress;
 
     private LocalDateTime createdAt;
 
@@ -57,44 +54,74 @@ public class Order {
     @Column(name = "canceled_by")
     private CanceledBy canceledBy;
 
+
     public void initialize() {
-        this.status = CREATED;
+        this.status = OrderStatus.WAITING_PAYMENT;
         this.createdAt = LocalDateTime.now();
     }
 
-    private static final Map<OrderStatus, Set<OrderStatus>> allowedTransitions =
-            Map.of(
-                    CREATED, Set.of(ACCEPTED, CANCELED),
-                    ACCEPTED, Set.of(IN_DELIVERY, CANCELED, CREATED),
-                    IN_DELIVERY, Set.of(DELIVERED),
-                    DELIVERED, Set.of(),
-                    CANCELED, Set.of()
-            );
+    public void markAsPaid() {
+        if (this.status != OrderStatus.WAITING_PAYMENT) {
+            throw new BusinessException("Order not waiting for payment");
+        }
+        this.status = OrderStatus.AVAILABLE;
+    }
 
-    public void changeStatus(OrderStatus newStatus) {
+    public void accept(User deliveryman) {
+        if (this.status != OrderStatus.AVAILABLE) {
+            throw new BusinessException("Order not available");
+        }
+        this.deliveryman = deliveryman;
+        this.status = OrderStatus.ACCEPTED;
+    }
 
-        if (this.status == null) {
-            throw new BusinessException("Order not initialized");
+    public void startDelivery(User deliveryman) {
+        if (this.status != OrderStatus.ACCEPTED) {
+            throw new BusinessException("Order not accepted");
+        }
+        if (!this.deliveryman.getId().equals(deliveryman.getId())) {
+            throw new BusinessException("Not your order");
+        }
+        this.status = OrderStatus.IN_DELIVERY;
+    }
+
+    public void deliver(User deliveryman) {
+        if (this.status != OrderStatus.IN_DELIVERY) {
+            throw new BusinessException("Order not in delivery");
+        }
+        if (!this.deliveryman.getId().equals(deliveryman.getId())) {
+            throw new BusinessException("Not your order");
+        }
+        this.status = OrderStatus.DELIVERED;
+    }
+
+    public void cancel(CanceledBy canceledBy, CancelReason reason) {
+
+        if (this.status == OrderStatus.DELIVERED ||
+                this.status == OrderStatus.REFUNDED) {
+            throw new BusinessException("Cannot cancel this order");
         }
 
-        if (!allowedTransitions.get(this.status).contains(newStatus)) {
-            throw new BusinessException("Invalid order status transition");
-        }
+        this.canceledBy = canceledBy;
+        this.cancelReason = reason;
+        this.status = OrderStatus.CANCELED;
+    }
 
-        if (newStatus == ACCEPTED) {
-            if (this.payment == null ||
-                    this.payment.getStatus() != PaymentStatus.PAID) {
-                throw new BusinessException("Order must be paid before acceptance");
-            }
+    public void markAsRefunded() {
+        if (this.status != OrderStatus.CANCELED) {
+            throw new BusinessException("Order must be canceled before refund");
         }
+        this.status = OrderStatus.REFUNDED;
+    }
 
-        if (newStatus == DELIVERED) {
-            if (this.payment == null ||
-                    this.payment.getStatus() != PaymentStatus.PAID) {
-                throw new BusinessException("Cannot deliver unpaid order");
-            }
+    public void withdrawDeliveryman(User deliveryman) {
+        if (this.status != OrderStatus.ACCEPTED) {
+            throw new BusinessException("Order not accepted");
         }
-
-        this.status = newStatus;
+        if (!this.deliveryman.getId().equals(deliveryman.getId())) {
+            throw new BusinessException("Not your order");
+        }
+        this.deliveryman = null;
+        this.status = OrderStatus.AVAILABLE;
     }
 }

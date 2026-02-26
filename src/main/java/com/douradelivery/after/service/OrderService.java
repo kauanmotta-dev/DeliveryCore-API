@@ -1,17 +1,16 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
-import com.douradelivery.after.model.order.dto.OrderCreateWithPaymentRequestDTO;
+import com.douradelivery.after.model.order.dto.OrderCreateRequestDTO;
 import com.douradelivery.after.model.order.dto.OrderResponseDTO;
 import com.douradelivery.after.model.order.dto.OrderStatusEventDTO;
 import com.douradelivery.after.model.order.dto.OrderStatusHistoryResponseDTO;
 import com.douradelivery.after.model.order.entity.Order;
+import com.douradelivery.after.model.order.entity.OrderStatusHistory;
 import com.douradelivery.after.model.order.enums.CancelReason;
 import com.douradelivery.after.model.order.enums.CanceledBy;
 import com.douradelivery.after.model.order.enums.OrderEventType;
 import com.douradelivery.after.model.order.enums.OrderStatus;
-import com.douradelivery.after.model.order.entity.OrderStatusHistory;
-import com.douradelivery.after.model.payment.dto.PaymentCreateRequestDTO;
 import com.douradelivery.after.model.user.entity.User;
 import com.douradelivery.after.repository.OrderRepository;
 import com.douradelivery.after.repository.OrderStatusHistoryRepository;
@@ -44,8 +43,7 @@ public class OrderService {
         );
     }
 
-
-    public OrderResponseDTO createOrder(User client, OrderCreateWithPaymentRequestDTO dto) {
+    public OrderResponseDTO createOrder(User client, OrderCreateRequestDTO dto) {
 
         Order order = new Order();
         order.setClient(client);
@@ -55,26 +53,12 @@ public class OrderService {
 
         orderRepository.save(order);
 
-        paymentService.createPayment(
-                client,
-                order.getId(),
-                new PaymentCreateRequestDTO(
-                        dto.amount(),
-                        dto.paymentMethod()
-                )
-        );
+        registerHistory(order, OrderStatus.WAITING_PAYMENT, client);
 
-        registerHistory(order, OrderStatus.CREATED, client);
-        notificationService.notifyOrderEvent(
-                order,
-                OrderEventType.ORDER_STATUS_CHANGED
-        );
         return toResponse(order);
     }
 
     public void cancelOrderByClient(User client, Long orderId) {
-
-        BigDecimal feePercentage;
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
@@ -85,29 +69,20 @@ public class OrderService {
 
         OrderStatus previousStatus = order.getStatus();
 
-        if (previousStatus == OrderStatus.CREATED) {
-            feePercentage = BigDecimal.ZERO;
-        }
-        else if (previousStatus == OrderStatus.ACCEPTED) {
-            feePercentage = new  BigDecimal("0.10");
-        }
-        else if (previousStatus == OrderStatus.IN_DELIVERY) {
-            slaService.registerClientCancellation(client);
-            feePercentage = new  BigDecimal("0.30");
-        }
-        else  {throw new BusinessException("Order cannot be canceled");}
+        BigDecimal feePercentage = calculateFee(previousStatus);
 
-        paymentService.refundPayment(order, feePercentage);
+        paymentService.processRefund(order, feePercentage);
 
-        order.setCanceledBy(CanceledBy.CLIENT);
-        order.setCancelReason(
+        order.cancel(CanceledBy.CLIENT,
                 previousStatus == OrderStatus.IN_DELIVERY
-                ? CancelReason.CLIENT_AFTER_ROUTE
-                : CancelReason.CLIENT_REQUEST
+                        ? CancelReason.CLIENT_AFTER_ROUTE
+                        : CancelReason.CLIENT_REQUEST
         );
-        order.changeStatus(OrderStatus.CANCELED);
 
         orderRepository.save(order);
+
+        slaService.registerClientCancellation(order.getClient());
+
         registerHistory(order, OrderStatus.CANCELED, client);
         notificationService.notifyOrderEvent(
                 order,
@@ -120,16 +95,11 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
 
-        if (order.getStatus() != OrderStatus.CREATED) {
-            throw new BusinessException("Order is not available");
-        }
-
-        order.changeStatus(OrderStatus.ACCEPTED);
-        order.setDeliveryman(deliveryman);
+        order.accept(deliveryman);
 
         orderRepository.save(order);
-        registerHistory(order, OrderStatus.ACCEPTED, deliveryman);
 
+        registerHistory(order, OrderStatus.ACCEPTED, deliveryman);
         notificationService.notifyOrderEvent(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
@@ -141,21 +111,13 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
 
-        if (!order.getDeliveryman().getId().equals(deliveryman.getId())) {
-            throw new BusinessException("You can only cancel your own orders");
-        }
+        order.withdrawDeliveryman(deliveryman);
 
-        if (order.getStatus() != OrderStatus.ACCEPTED) {
-            throw new BusinessException("Order cannot be canceled at this stage");
-        }
+        orderRepository.save(order);
 
         slaService.registerDeliverymanWithdrawal(deliveryman);
 
-        order.setDeliveryman(null);
-        order.changeStatus(OrderStatus.CREATED);
-
-        orderRepository.save(order);
-        registerHistory(order, OrderStatus.CREATED, deliveryman);
+        registerHistory(order, OrderStatus.AVAILABLE, deliveryman);
         notificationService.notifyOrderEvent(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
@@ -167,17 +129,10 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
 
-        if (!order.getDeliveryman().getId().equals(deliveryman.getId())) {
-            throw new BusinessException("You can only start delivery for your own orders");
-        }
-
-        if (order.getStatus() != OrderStatus.ACCEPTED) {
-            throw new BusinessException("Order is not ready to start delivery");
-        }
-
-        order.changeStatus(OrderStatus.IN_DELIVERY);
+        order.startDelivery(deliveryman);
 
         orderRepository.save(order);
+
         registerHistory(order, OrderStatus.IN_DELIVERY, deliveryman);
         notificationService.notifyOrderEvent(
                 order,
@@ -190,17 +145,10 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
 
-        if (!order.getDeliveryman().getId().equals(deliveryman.getId())) {
-            throw new BusinessException("You can only deliver your own orders");
-        }
-
-        if (order.getStatus() != OrderStatus.IN_DELIVERY) {
-            throw new BusinessException("Order is not in route");
-        }
-
-        order.changeStatus(OrderStatus.DELIVERED);
+        order.deliver(deliveryman);
 
         orderRepository.save(order);
+
         registerHistory(order, OrderStatus.DELIVERED, deliveryman);
         notificationService.notifyOrderEvent(
                 order,
@@ -208,6 +156,36 @@ public class OrderService {
         );
     }
 
+    public void markAsPaid(Long orderId) {
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException("Order not found"));
+
+        order.markAsPaid();
+        orderRepository.save(order);
+
+        registerHistory(order, OrderStatus.AVAILABLE, null);
+        notificationService.notifyOrderEvent(
+                order,
+                OrderEventType.PAYMENT_CONFIRMED
+        );
+    }
+
+    private BigDecimal calculateFee(OrderStatus status) {
+
+        return switch (status) {
+
+            case WAITING_PAYMENT -> BigDecimal.ZERO;
+
+            case AVAILABLE -> BigDecimal.ZERO;
+
+            case ACCEPTED -> new BigDecimal("0.10");
+
+            case IN_DELIVERY -> new BigDecimal("0.30");
+
+            default -> throw new BusinessException("Order cannot be canceled");
+        };
+    }
 
     private void registerHistory(Order order, OrderStatus status, User user) {
 
@@ -246,7 +224,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponseDTO> listAvailableOrders() {
-        return orderRepository.findByStatus(OrderStatus.CREATED)
+        return orderRepository.findByStatus(OrderStatus.AVAILABLE)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -259,7 +237,7 @@ public class OrderService {
                 .findByClientAndStatusIn(
                         client,
                         List.of(
-                                OrderStatus.CREATED,
+                                OrderStatus.AVAILABLE,
                                 OrderStatus.ACCEPTED,
                                 OrderStatus.IN_DELIVERY
                         )
