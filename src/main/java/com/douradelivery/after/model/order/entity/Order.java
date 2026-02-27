@@ -97,9 +97,16 @@ public class Order {
 
     public void cancel(CanceledBy canceledBy, CancelReason reason) {
 
-        if (this.status == OrderStatus.DELIVERED ||
-                this.status == OrderStatus.REFUNDED) {
-            throw new BusinessException("Cannot cancel this order");
+        if (this.status == OrderStatus.DELIVERED) {
+            throw new BusinessException("Delivered orders cannot be canceled");
+        }
+
+        if (this.status == OrderStatus.REFUNDED) {
+            throw new BusinessException("Order already refunded");
+        }
+
+        if (this.status == OrderStatus.CANCELED) {
+            throw new BusinessException("Order already canceled");
         }
 
         this.canceledBy = canceledBy;

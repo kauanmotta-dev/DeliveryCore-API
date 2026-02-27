@@ -29,14 +29,12 @@ public class Payment {
     @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     private PaymentMethod method;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
-    @Setter
     private BigDecimal amount;
     private BigDecimal refundedAmount;
     private BigDecimal feeAmount;
@@ -44,6 +42,18 @@ public class Payment {
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
     private LocalDateTime refundedAt;
+
+    public void initialize(PaymentMethod method, BigDecimal amount) {
+
+        if (this.status != null) {
+            throw new BusinessException("Payment already initialized");
+        }
+
+        this.method = method;
+        this.amount = amount;
+        this.status = PaymentStatus.PENDING;
+        this.createdAt = LocalDateTime.now();
+    }
 
     public void confirm() {
         if (this.status != PaymentStatus.PENDING) {
@@ -53,13 +63,19 @@ public class Payment {
         this.paidAt = LocalDateTime.now();
     }
 
-    public void refund(BigDecimal refundedAmount, BigDecimal fee) {
-        if (this.status != PaymentStatus.CONFIRMED) {
-            throw new BusinessException("Payment not confirmed");
+    public void refund(BigDecimal refundedAmount, BigDecimal feeAmount) {
+
+        if (this.status == PaymentStatus.REFUNDED) {
+            return;
         }
+
+        if (this.status != PaymentStatus.CONFIRMED) {
+            throw new BusinessException("Only confirmed payments can be refunded");
+        }
+
         this.status = PaymentStatus.REFUNDED;
         this.refundedAmount = refundedAmount;
-        this.feeAmount = fee;
+        this.feeAmount = feeAmount;
         this.refundedAt = LocalDateTime.now();
     }
 

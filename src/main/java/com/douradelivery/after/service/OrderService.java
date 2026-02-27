@@ -71,20 +71,24 @@ public class OrderService {
 
         BigDecimal feePercentage = calculateFee(previousStatus);
 
-        paymentService.processRefund(order, feePercentage);
+        if (previousStatus == OrderStatus.IN_DELIVERY) {
+            slaService.registerClientCancellation(client);
+        }
 
-        order.cancel(CanceledBy.CLIENT,
+        order.cancel(
+                CanceledBy.CLIENT,
                 previousStatus == OrderStatus.IN_DELIVERY
                         ? CancelReason.CLIENT_AFTER_ROUTE
                         : CancelReason.CLIENT_REQUEST
         );
 
+        paymentService.processRefund(order, feePercentage);
+
         orderRepository.save(order);
 
-        slaService.registerClientCancellation(order.getClient());
-
         registerHistory(order, OrderStatus.CANCELED, client);
-        notificationService.notifyOrderEvent(
+
+        notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_CANCELED
         );
@@ -100,7 +104,7 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.ACCEPTED, deliveryman);
-        notificationService.notifyOrderEvent(
+        notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
         );
@@ -118,7 +122,7 @@ public class OrderService {
         slaService.registerDeliverymanWithdrawal(deliveryman);
 
         registerHistory(order, OrderStatus.AVAILABLE, deliveryman);
-        notificationService.notifyOrderEvent(
+        notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
         );
@@ -134,7 +138,7 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.IN_DELIVERY, deliveryman);
-        notificationService.notifyOrderEvent(
+        notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
         );
@@ -150,7 +154,7 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.DELIVERED, deliveryman);
-        notificationService.notifyOrderEvent(
+        notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
         );
@@ -165,7 +169,7 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.AVAILABLE, null);
-        notificationService.notifyOrderEvent(
+        notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.PAYMENT_CONFIRMED
         );

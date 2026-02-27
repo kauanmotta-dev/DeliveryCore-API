@@ -3,6 +3,7 @@ package com.douradelivery.after.service;
 import com.douradelivery.after.model.order.dto.OrderStatusEventDTO;
 import com.douradelivery.after.model.order.entity.Order;
 import com.douradelivery.after.model.order.enums.OrderEventType;
+import com.douradelivery.after.util.TransactionUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -15,34 +16,34 @@ public class NotificationService {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void notifyOrderEvent(Order order, OrderEventType type) {
+    public void notifyOrderEventAfterCommit(Order order, OrderEventType type) {
 
-        OrderStatusEventDTO event = new OrderStatusEventDTO(
-                type,
-                order.getId(),
-                order.getStatus().name()
-        );
+        TransactionUtils.runAfterCommit(() -> {
 
-        // CLIENTE
-        messagingTemplate.convertAndSendToUser(
-                order.getClient().getEmail(),
-                "/queue/orders",
-                event
-        );
+            OrderStatusEventDTO event = new OrderStatusEventDTO(
+                    type,
+                    order.getId(),
+                    order.getStatus().name()
+            );
 
-        // ENTREGADOR (se existir)
-        if (order.getDeliveryman() != null) {
             messagingTemplate.convertAndSendToUser(
-                    order.getDeliveryman().getEmail(),
+                    order.getClient().getEmail(),
                     "/queue/orders",
                     event
             );
-        }
 
-        // ADMIN (opcional)
-        messagingTemplate.convertAndSend(
-                "/topic/admin/orders",
-                event
-        );
+            if (order.getDeliveryman() != null) {
+                messagingTemplate.convertAndSendToUser(
+                        order.getDeliveryman().getEmail(),
+                        "/queue/orders",
+                        event
+                );
+            }
+
+            messagingTemplate.convertAndSend(
+                    "/topic/admin/orders",
+                    event
+            );
+        });
     }
 }

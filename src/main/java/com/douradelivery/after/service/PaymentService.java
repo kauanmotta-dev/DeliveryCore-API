@@ -65,10 +65,7 @@ public class PaymentService {
 
         Payment payment = new Payment();
         payment.setOrder(order);
-        payment.setMethod(dto.paymentMethod());
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setAmount(dto.amount());
-        payment.setCreatedAt(LocalDateTime.now());
+        payment.initialize(dto.paymentMethod(), dto.amount());
 
         paymentRepository.save(payment);
 
@@ -77,8 +74,21 @@ public class PaymentService {
 
     public void processRefund(Order order, BigDecimal feePercentage) {
 
-        Payment payment = paymentRepository.findByOrder(order)
-                .orElseThrow(() -> new BusinessException("Payment not found"));
+        Optional<Payment> optionalPayment = paymentRepository.findByOrder(order);
+
+        if (optionalPayment.isEmpty()) {
+            return;
+        }
+
+        Payment payment = optionalPayment.get();
+
+        if (payment.getStatus() == PaymentStatus.REFUNDED) {
+            return; // idempotente
+        }
+
+        if (payment.getStatus() != PaymentStatus.CONFIRMED) {
+            throw new BusinessException("Payment is not confirmed");
+        }
 
         BigDecimal amount = payment.getAmount();
 
@@ -106,14 +116,20 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(event.paymentId())
                 .orElseThrow(() -> new BusinessException("Payment not found"));
 
+        Order order = payment.getOrder();
+        if (order.getStatus() == OrderStatus.CANCELED ||
+                order.getStatus() == OrderStatus.REFUNDED) {
+            throw new BusinessException("Order already canceled");
+        }
+
         if (payment.getStatus() == PaymentStatus.CONFIRMED) {
-            return; // idempotente
+            return;
         }
 
         payment.confirm();
         paymentRepository.save(payment);
 
-        orderService.markAsPaid(payment.getOrder().getId());
+        orderService.markAsPaid(order.getId());
     }
 }
 
