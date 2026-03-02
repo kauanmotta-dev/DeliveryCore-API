@@ -5,6 +5,7 @@ import com.douradelivery.after.model.order.enums.CancelReason;
 import com.douradelivery.after.model.order.enums.CanceledBy;
 import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.entity.Payment;
+import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -58,6 +59,8 @@ public class Order {
     public void initialize() {
         this.status = OrderStatus.WAITING_PAYMENT;
         this.createdAt = LocalDateTime.now();
+
+        validateInvariants();
     }
 
     public void markAsPaid() {
@@ -65,6 +68,8 @@ public class Order {
             throw new BusinessException("Order not waiting for payment");
         }
         this.status = OrderStatus.AVAILABLE;
+
+        validateInvariants();
     }
 
     public void accept(User deliveryman) {
@@ -73,6 +78,8 @@ public class Order {
         }
         this.deliveryman = deliveryman;
         this.status = OrderStatus.ACCEPTED;
+
+        validateInvariants();
     }
 
     public void startDelivery(User deliveryman) {
@@ -83,6 +90,8 @@ public class Order {
             throw new BusinessException("Not your order");
         }
         this.status = OrderStatus.IN_DELIVERY;
+
+        validateInvariants();
     }
 
     public void deliver(User deliveryman) {
@@ -93,6 +102,8 @@ public class Order {
             throw new BusinessException("Not your order");
         }
         this.status = OrderStatus.DELIVERED;
+
+        validateInvariants();
     }
 
     public void cancel(CanceledBy canceledBy, CancelReason reason) {
@@ -112,6 +123,8 @@ public class Order {
         this.canceledBy = canceledBy;
         this.cancelReason = reason;
         this.status = OrderStatus.CANCELED;
+
+        validateInvariants();
     }
 
     public void markAsRefunded() {
@@ -119,6 +132,8 @@ public class Order {
             throw new BusinessException("Order must be canceled before refund");
         }
         this.status = OrderStatus.REFUNDED;
+
+        validateInvariants();
     }
 
     public void withdrawDeliveryman(User deliveryman) {
@@ -130,5 +145,31 @@ public class Order {
         }
         this.deliveryman = null;
         this.status = OrderStatus.AVAILABLE;
+
+        validateInvariants();
+    }
+
+    private void validateInvariants() {
+
+        if (status == OrderStatus.AVAILABLE && deliveryman != null) {
+            throw new IllegalStateException("AVAILABLE order cannot have deliveryman");
+        }
+
+        if ((status == OrderStatus.ACCEPTED || status == OrderStatus.IN_DELIVERY)
+                && deliveryman == null) {
+            throw new IllegalStateException("Order in delivery flow must have deliveryman");
+        }
+
+        if (status == OrderStatus.WAITING_PAYMENT) {
+            if (payment != null && payment.getStatus() == PaymentStatus.CONFIRMED) {
+                throw new IllegalStateException("Waiting payment cannot be confirmed");
+            }
+        }
+
+        if (status == OrderStatus.REFUNDED) {
+            if (payment == null || payment.getStatus() != PaymentStatus.REFUNDED) {
+                throw new IllegalStateException("Refunded order must have refunded payment");
+            }
+        }
     }
 }

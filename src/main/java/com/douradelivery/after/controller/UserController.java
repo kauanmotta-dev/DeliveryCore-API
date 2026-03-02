@@ -67,12 +67,14 @@ public class UserController {
         return ApiResponse.success("Password updated successfully");
     }
 
+    @Operation(summary = "Lista todos os Usuários")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ApiResponse<List<UserResponseDTO>> listAll() {
         return ApiResponse.success(userService.listAll());
     }
 
+    @Operation(summary = "Ativa/desativa Usuário")
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/changeStatus")
     public ApiResponse<Void> changeStatus(

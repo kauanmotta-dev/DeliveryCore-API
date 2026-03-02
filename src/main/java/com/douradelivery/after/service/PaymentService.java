@@ -113,13 +113,31 @@ public class PaymentService {
                 .orElseThrow(() -> new BusinessException("Payment not found"));
 
         Order order = payment.getOrder();
+
+        // 🔒 1. Blindagem contra pedido cancelado/refundado
         if (order.getStatus() == OrderStatus.CANCELED ||
                 order.getStatus() == OrderStatus.REFUNDED) {
-            throw new BusinessException("Order already canceled");
+            throw new BusinessException("Order already closed");
         }
 
+        // 🔒 2. Blindagem contra pagamento duplicado
         if (payment.getStatus() == PaymentStatus.CONFIRMED) {
-            return null;
+            return null; // idempotente
+        }
+
+        // 🔒 3. Só pode confirmar se estiver PENDING
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new BusinessException("Invalid payment state");
+        }
+
+        // 🔒 4. Valor precisa bater exatamente
+        if (payment.getAmount().compareTo(event.amount()) != 0) {
+            throw new BusinessException("Invalid payment amount");
+        }
+
+        // 🔒 5. Pedido deve estar aguardando pagamento
+        if (order.getStatus() != OrderStatus.WAITING_PAYMENT) {
+            throw new BusinessException("Order not waiting payment");
         }
 
         payment.confirm();

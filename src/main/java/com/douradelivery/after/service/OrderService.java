@@ -11,6 +11,7 @@ import com.douradelivery.after.model.order.enums.CancelReason;
 import com.douradelivery.after.model.order.enums.CanceledBy;
 import com.douradelivery.after.model.order.enums.OrderEventType;
 import com.douradelivery.after.model.order.enums.OrderStatus;
+import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.user.entity.User;
 import com.douradelivery.after.repository.OrderRepository;
 import com.douradelivery.after.repository.OrderStatusHistoryRepository;
@@ -84,14 +85,21 @@ public class OrderService {
 
         paymentService.processRefund(order, feePercentage);
 
+        if(previousStatus == OrderStatus.WAITING_PAYMENT) {
+            registerHistory(order, OrderStatus.CANCELED, client);
+            notificationService.notifyOrderEventAfterCommit(
+                    order,
+                    OrderEventType.ORDER_CANCELED
+            );
+        } else{
+            order.markAsRefunded();
+            registerHistory(order, OrderStatus.REFUNDED, client);
+            notificationService.notifyOrderEventAfterCommit(
+                    order,
+                    OrderEventType.PAYMENT_REFUNDED
+            );
+        }
         orderRepository.save(order);
-
-        registerHistory(order, OrderStatus.CANCELED, client);
-
-        notificationService.notifyOrderEventAfterCommit(
-                order,
-                OrderEventType.ORDER_CANCELED
-        );
     }
 
     public void acceptOrder(User deliveryman, Long orderId) {
