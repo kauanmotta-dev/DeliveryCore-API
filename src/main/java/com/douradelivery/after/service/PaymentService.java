@@ -3,7 +3,6 @@ package com.douradelivery.after.service;
 import com.douradelivery.after.config.webhook.WebhookValidator;
 import com.douradelivery.after.exception.exceptions.BusinessException;
 import com.douradelivery.after.model.order.entity.Order;
-import com.douradelivery.after.model.order.enums.OrderEventType;
 import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.dto.PaymentCreateRequestDTO;
 import com.douradelivery.after.model.payment.dto.PaymentResponseDTO;
@@ -19,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -30,8 +28,6 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final WebhookValidator webhookValidator;
-    private final NotificationService notificationService;
-    private final OrderService orderService;
 
     @Transactional(readOnly = true)
     private PaymentResponseDTO toResponse(Payment payment) {
@@ -105,12 +101,12 @@ public class PaymentService {
         order.markAsRefunded();
     }
 
-    public void handlePixWebhook(PaymentWebhookRequestDTO event) {
+    public Long handlePixWebhook(PaymentWebhookRequestDTO event) {
 
         webhookValidator.validate(event.secret());
 
         if (!"PAYMENT_CONFIRMED".equals(event.status())) {
-            return;
+            return null;
         }
 
         Payment payment = paymentRepository.findById(event.paymentId())
@@ -123,13 +119,13 @@ public class PaymentService {
         }
 
         if (payment.getStatus() == PaymentStatus.CONFIRMED) {
-            return;
+            return null;
         }
 
         payment.confirm();
         paymentRepository.save(payment);
 
-        orderService.markAsPaid(order.getId());
+        return order.getId();
     }
 }
 
