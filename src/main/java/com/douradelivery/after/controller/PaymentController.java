@@ -30,6 +30,6 @@ public class PaymentController {
             @RequestHeader("Idempotency-Key") String idempotencyKey
 
     ) {
-        return ApiResponse.success(paymentService.createPayment(user, orderId, dto));
+        return ApiResponse.success(paymentService.createPayment(user, orderId, dto, idempotencyKey));
     }
 }
