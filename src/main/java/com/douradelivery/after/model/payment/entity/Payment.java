@@ -5,12 +5,12 @@ import com.douradelivery.after.model.payment.enums.PaymentMethod;
 import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.order.entity.Order;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "payments")
@@ -29,6 +29,12 @@ public class Payment {
     @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
 
+    @Column(unique = true)
+    private String externalPaymentId;
+
+    @Column(unique = true)
+    private String idempotencyKey;
+
     @Enumerated(EnumType.STRING)
     private PaymentMethod method;
 
@@ -42,25 +48,61 @@ public class Payment {
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
     private LocalDateTime refundedAt;
+    private LocalDateTime expiresAt;
 
-    public void initialize(PaymentMethod method, BigDecimal amount) {
+    private String failureReason;
+
+    public void initialize(PaymentMethod method, BigDecimal amount, String idempotencyKey) {
 
         if (this.status != null) {
             throw new BusinessException("Payment already initialized");
         }
 
+        this.externalPaymentId = "pay_" + UUID.randomUUID();
+        this.idempotencyKey = idempotencyKey;
+
         this.method = method;
         this.amount = amount;
+
         this.status = PaymentStatus.PENDING;
+
         this.createdAt = LocalDateTime.now();
+
+        this.expiresAt = LocalDateTime.now().plusMinutes(15);
     }
 
     public void confirm() {
+
         if (this.status != PaymentStatus.PENDING) {
             throw new BusinessException("Invalid payment transition");
         }
+
+        if (LocalDateTime.now().isAfter(this.expiresAt)) {
+            this.status = PaymentStatus.EXPIRED;
+            throw new BusinessException("Payment expired");
+        }
+
         this.status = PaymentStatus.CONFIRMED;
         this.paidAt = LocalDateTime.now();
+    }
+
+    public void markFailed(String reason) {
+
+        if (this.status != PaymentStatus.PENDING) {
+            throw new BusinessException("Invalid payment state");
+        }
+
+        this.status = PaymentStatus.FAILED;
+        this.failureReason = reason;
+    }
+
+    public void expire() {
+
+        if (this.status != PaymentStatus.PENDING) {
+            return;
+        }
+
+        this.status = PaymentStatus.EXPIRED;
     }
 
     public void refund(BigDecimal refundedAmount, BigDecimal feeAmount) {
@@ -74,10 +116,10 @@ public class Payment {
         }
 
         this.status = PaymentStatus.REFUNDED;
+
         this.refundedAmount = refundedAmount;
         this.feeAmount = feeAmount;
+
         this.refundedAt = LocalDateTime.now();
     }
-
-
 }

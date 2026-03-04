@@ -38,7 +38,14 @@ public class PaymentService {
         );
     }
 
-    public PaymentResponseDTO createPayment(User client, Long orderId, PaymentCreateRequestDTO dto) {
+    public PaymentResponseDTO createPayment(User client, Long orderId, PaymentCreateRequestDTO dto, String idempotencyKey) {
+
+        Optional<Payment> existingPayment =
+                paymentRepository.findByIdempotencyKey(idempotencyKey);
+
+        if (existingPayment.isPresent()) {
+            return toResponse(existingPayment.get());
+        }
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
@@ -61,7 +68,7 @@ public class PaymentService {
 
         Payment payment = new Payment();
         payment.setOrder(order);
-        payment.initialize(dto.paymentMethod(), dto.amount());
+        payment.initialize(dto.paymentMethod(), dto.amount(), idempotencyKey);
 
         paymentRepository.save(payment);
 
@@ -103,7 +110,7 @@ public class PaymentService {
 
     public Long handlePixWebhook(PaymentWebhookRequestDTO event) {
 
-        webhookValidator.validate(event.secret());
+        webhookValidator.validate(event.toString(), event.secret());
 
         if (!"PAYMENT_CONFIRMED".equals(event.status())) {
             return null;

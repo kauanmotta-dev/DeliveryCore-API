@@ -26,7 +26,9 @@ public class PaymentController {
     public ApiResponse<PaymentResponseDTO> create(
             @AuthenticationPrincipal User user,
             @PathVariable Long orderId,
-            @RequestBody PaymentCreateRequestDTO dto
+            @RequestBody PaymentCreateRequestDTO dto,
+            @RequestHeader("Idempotency-Key") String idempotencyKey
+
     ) {
         return ApiResponse.success(paymentService.createPayment(user, orderId, dto));
     }
