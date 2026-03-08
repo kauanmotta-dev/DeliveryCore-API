@@ -1,6 +1,7 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.deliverymanVerification.entity.DeliverymanVerification;
 import com.douradelivery.after.model.order.dto.OrderCreateRequestDTO;
 import com.douradelivery.after.model.order.dto.OrderResponseDTO;
 import com.douradelivery.after.model.order.dto.OrderStatusEventDTO;
@@ -13,6 +14,8 @@ import com.douradelivery.after.model.order.enums.OrderEventType;
 import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.user.entity.User;
+import com.douradelivery.after.model.user.enums.UserRole;
+import com.douradelivery.after.repository.DeliverymanVerificationRepository;
 import com.douradelivery.after.repository.OrderRepository;
 import com.douradelivery.after.repository.OrderStatusHistoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class OrderService {
     private final PaymentService paymentService;
     private final NotificationService notificationService;
     private final SlaService slaService;
+    private final DeliverymanVerificationRepository verificationRepository;
 
     @Transactional(readOnly = true)
     private OrderResponseDTO toResponse(Order order) {
@@ -104,8 +108,21 @@ public class OrderService {
 
     public void acceptOrder(User deliveryman, Long orderId) {
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository
+                .findWithLockById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
+
+        if (deliveryman.getRole() != UserRole.DELIVERYMAN) {
+            throw new BusinessException("User is not a deliveryman");
+        }
+
+        DeliverymanVerification verification =
+                verificationRepository
+                        .findTopByUserOrderByCreatedAtDesc(deliveryman)
+                        .orElseThrow(() ->
+                                new BusinessException("Deliveryman verification not found"));
+
+        verification.ensureApproved();
 
         order.accept(deliveryman);
 

@@ -12,6 +12,9 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    @Lock(LockModeType.OPTIMISTIC)
+    Optional<Order> findWithLockById(Long id);
+
     List<Order> findByStatus(OrderStatus status);
 
     List<Order> findByClient(User client);

@@ -1,5 +1,10 @@
 package com.douradelivery.after.model.payment.enums;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 public enum PaymentMethod {
 
     PIX(true),
@@ -9,12 +14,5 @@ public enum PaymentMethod {
 
     private final boolean enabled;
 
-    PaymentMethod(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
 }
 

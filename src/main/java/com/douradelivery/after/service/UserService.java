@@ -40,14 +40,13 @@ public class UserService {
             throw new BusinessException("Email already exists");
         }
 
-        User user = User.builder()
-                .name(request.name())
-                .email(request.email())
-                .cpf(request.cpf())
-                .password(passwordEncoder.encode(request.password()))
-                .role(UserRole.CLIENT)
-                .active(true)
-                .build();
+        User user = new User(
+                request.name(),
+                request.email(),
+                passwordEncoder.encode(request.password()),
+                request.cpf(),
+                UserRole.CLIENT,
+                true);
 
         User savedUser = userRepository.save(user);
 

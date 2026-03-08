@@ -1,5 +1,6 @@
 package com.douradelivery.after.model.user.entity;
 
+import com.douradelivery.after.exception.exceptions.BusinessException;
 import com.douradelivery.after.model.user.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
@@ -14,11 +15,9 @@ import java.util.List;
 @Table(name = "users")
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class User implements UserDetails{
 
+    @Setter(AccessLevel.NONE)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,6 +34,7 @@ public class User implements UserDetails{
     @Column(nullable = false)
     private String password;
 
+    @Setter(AccessLevel.NONE)
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
@@ -48,7 +48,14 @@ public class User implements UserDetails{
     @Column(nullable = false)
     private int deliverymanPenaltyCount = 0;
 
-
+public User(String name, String email, String password, String cpf, UserRole role, Boolean active) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.cpf = cpf;
+        this.role = role;
+        this.active = active;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -77,5 +84,14 @@ public class User implements UserDetails{
 
     @Override
     public boolean isEnabled() { return active; }
+
+    public void promoteToDeliveryman() {
+
+        if (this.role == UserRole.DELIVERYMAN) {
+            throw new BusinessException("User already a deliveryman");
+        }
+
+        this.role = UserRole.DELIVERYMAN;
+    }
 
 }
