@@ -1,6 +1,7 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.audit.enums.AuditLogAction;
 import com.douradelivery.after.model.deliverymanVerification.entity.DeliverymanVerification;
 import com.douradelivery.after.model.order.dto.OrderCreateRequestDTO;
 import com.douradelivery.after.model.order.dto.OrderResponseDTO;
@@ -37,6 +38,7 @@ public class OrderService {
     private final NotificationService notificationService;
     private final SlaService slaService;
     private final DeliverymanVerificationRepository verificationRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     private OrderResponseDTO toResponse(Order order) {
@@ -59,6 +61,13 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.WAITING_PAYMENT, client);
+        auditLogService.log(
+                AuditLogAction.ORDER_CREATED,
+                "Order",
+                order.getId(),
+                client.getId(),
+                "Order created"
+        );
 
         return toResponse(order);
     }
@@ -98,6 +107,14 @@ public class OrderService {
         } else{
             order.markAsRefunded();
             registerHistory(order, OrderStatus.REFUNDED, client);
+            auditLogService.log(
+                    AuditLogAction.ORDER_CANCELED,
+                    "Order",
+                    order.getId(),
+                    client.getId(),
+                    "Order canceled by client"
+            );
+
             notificationService.notifyOrderEventAfterCommit(
                     order,
                     OrderEventType.PAYMENT_REFUNDED
@@ -129,6 +146,14 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.ACCEPTED, deliveryman);
+        auditLogService.log(
+                AuditLogAction.ORDER_ACCEPTED,
+                "Order",
+                order.getId(),
+                deliveryman.getId(),
+                "Order accepted by deliveryman"
+        );
+
         notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
@@ -147,6 +172,14 @@ public class OrderService {
         slaService.registerDeliverymanWithdrawal(deliveryman);
 
         registerHistory(order, OrderStatus.AVAILABLE, deliveryman);
+        auditLogService.log(
+                AuditLogAction.ORDER_CANCELED,
+                "Order",
+                order.getId(),
+                deliveryman.getId(),
+                "Deliveryman withdrew from order"
+        );
+
         notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
@@ -163,6 +196,14 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.IN_DELIVERY, deliveryman);
+        auditLogService.log(
+                AuditLogAction.ORDER_STARTED,
+                "Order",
+                order.getId(),
+                deliveryman.getId(),
+                "Delivery started"
+        );
+
         notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED
@@ -179,6 +220,14 @@ public class OrderService {
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.DELIVERED, deliveryman);
+        auditLogService.log(
+                AuditLogAction.ORDER_DELIVERED,
+                "Order",
+                order.getId(),
+                deliveryman.getId(),
+                "Order delivered"
+        );
+
         notificationService.notifyOrderEventAfterCommit(
                 order,
                 OrderEventType.ORDER_STATUS_CHANGED

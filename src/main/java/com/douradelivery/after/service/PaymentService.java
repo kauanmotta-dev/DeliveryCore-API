@@ -2,6 +2,7 @@ package com.douradelivery.after.service;
 
 import com.douradelivery.after.config.webhook.WebhookValidator;
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.audit.enums.AuditLogAction;
 import com.douradelivery.after.model.order.entity.Order;
 import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.dto.PaymentCreateRequestDTO;
@@ -28,6 +29,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final WebhookValidator webhookValidator;
+    private final AuditLogService auditService;
 
     @Transactional(readOnly = true)
     private PaymentResponseDTO toResponse(Payment payment) {
@@ -72,6 +74,14 @@ public class PaymentService {
 
         paymentRepository.save(payment);
 
+        auditService.log(
+                AuditLogAction.PAYMENT_CREATED,
+                "Payment",
+                payment.getId(),
+                client.getId(),
+                "Payment created"
+        );
+
         return toResponse(payment);
     }
 
@@ -104,6 +114,14 @@ public class PaymentService {
         payment.refund(refundedAmount, feeAmount);
 
         paymentRepository.save(payment);
+
+        auditService.log(
+                AuditLogAction.PAYMENT_REFUNDED,
+                "Payment",
+                payment.getId(),
+                null,
+                "Payment refunded"
+        );
 
         order.markAsRefunded();
     }
@@ -149,6 +167,14 @@ public class PaymentService {
 
         payment.confirm();
         paymentRepository.save(payment);
+
+        auditService.log(
+                AuditLogAction.PAYMENT_CONFIRMED,
+                "Payment",
+                payment.getId(),
+                null,
+                "Payment confirmed via webhook"
+        );
 
         return order.getId();
     }

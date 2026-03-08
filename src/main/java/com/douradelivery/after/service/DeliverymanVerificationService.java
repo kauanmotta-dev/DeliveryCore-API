@@ -1,6 +1,7 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.audit.enums.AuditLogAction;
 import com.douradelivery.after.model.deliverymanVerification.dto.DeliverymanVerificationResponseDTO;
 import com.douradelivery.after.model.deliverymanVerification.enums.VerificationStatus;
 import com.douradelivery.after.model.user.entity.User;
@@ -21,6 +22,7 @@ public class DeliverymanVerificationService {
 
     private final DeliverymanVerificationRepository repository;
     private final NotificationService notificationService;
+    private final AuditLogService auditLogService;
 
     public void requestVerification(
             User user,
@@ -68,6 +70,14 @@ public class DeliverymanVerificationService {
 
         repository.save(verification);
 
+        auditLogService.log(
+                AuditLogAction.DELIVERYMAN_VERIFICATION_REQUESTED,
+                "DeliverymanVerification",
+                verification.getId(),
+                user.getId(),
+                "User requested deliveryman verification"
+        );
+
         notificationService.notifyDeliverymanVerificationAfterCommit(
                 user,
                 VerificationStatus.PENDING
@@ -90,6 +100,14 @@ public class DeliverymanVerificationService {
 
         user.promoteToDeliveryman();
 
+        auditLogService.log(
+                AuditLogAction.DELIVERYMAN_APPROVED,
+                "DeliverymanVerification",
+                verification.getId(),
+                admin.getId(),
+                "Admin approved deliveryman"
+        );
+
         notificationService.notifyDeliverymanVerificationAfterCommit(
                 user,
                 VerificationStatus.APPROVED
@@ -109,6 +127,14 @@ public class DeliverymanVerificationService {
         verification.reject(admin);
 
         User user = verification.getUser();
+
+        auditLogService.log(
+                AuditLogAction.DELIVERYMAN_REJECTED,
+                "DeliverymanVerification",
+                verification.getId(),
+                admin.getId(),
+                "Admin rejected verification"
+        );
 
         notificationService.notifyDeliverymanVerificationAfterCommit(
                 user,
@@ -130,6 +156,14 @@ public class DeliverymanVerificationService {
         verification.suspend(admin, reason);
 
         User user = verification.getUser();
+
+        auditLogService.log(
+                AuditLogAction.DELIVERYMAN_SUSPENDED,
+                "DeliverymanVerification",
+                verification.getId(),
+                admin.getId(),
+                "Admin suspended deliveryman"
+        );
 
         notificationService.notifyDeliverymanVerificationAfterCommit(
                 user,
