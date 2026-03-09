@@ -1,12 +1,16 @@
 package com.douradelivery.after.model.order.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import com.douradelivery.after.model.address.dto.AddressCreateRequestDTO;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 public record OrderCreateRequestDTO(
 
-        @NotBlank
-        String originAddress,
+        @NotNull
+        Long originAddressId,
 
-        @NotBlank
-        String destinationAddress
+        @Valid
+        @NotNull
+        AddressCreateRequestDTO destinationAddress
+
 ) {}

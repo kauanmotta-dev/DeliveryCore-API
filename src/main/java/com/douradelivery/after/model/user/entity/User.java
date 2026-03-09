@@ -1,6 +1,7 @@
 package com.douradelivery.after.model.user.entity;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.user.enums.DeliverymanStatus;
 import com.douradelivery.after.model.user.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
@@ -38,6 +39,10 @@ public class User implements UserDetails{
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DeliverymanStatus deliverymanStatus = DeliverymanStatus.OFFLINE;
 
     @Column(nullable = false)
     private Boolean active = true;

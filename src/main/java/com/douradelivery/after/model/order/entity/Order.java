@@ -1,6 +1,7 @@
 package com.douradelivery.after.model.order.entity;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.address.entity.Address;
 import com.douradelivery.after.model.order.enums.CancelReason;
 import com.douradelivery.after.model.order.enums.CanceledBy;
 import com.douradelivery.after.model.order.enums.OrderStatus;
@@ -41,9 +42,14 @@ public class Order {
     private OrderStatus status;
 
     @Setter
-    private String originAddress;
+    @OneToOne
+    @JoinColumn(name = "origin_address_id")
+    private Address originAddress;
+
     @Setter
-    private String destinationAddress;
+    @ManyToOne(optional = false, cascade = CascadeType.ALL)
+    @JoinColumn(name = "destination_address_id")
+    private Address destinationAddress;
 
     private LocalDateTime createdAt;
 

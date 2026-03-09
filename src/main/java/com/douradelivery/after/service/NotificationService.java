@@ -1,5 +1,6 @@
 package com.douradelivery.after.service;
 
+import com.douradelivery.after.model.deliveryLocation.dto.DeliveryLocationEventDTO;
 import com.douradelivery.after.model.deliverymanVerification.dto.DeliverymanVerificationEventDTO;
 import com.douradelivery.after.model.deliverymanVerification.enums.VerificationStatus;
 import com.douradelivery.after.model.order.dto.OrderStatusEventDTO;
@@ -67,6 +68,47 @@ public class NotificationService {
                     "/topic/admin/verification",
                     event
             );
+        });
+    }
+
+    public void notifyLocationUpdateAfterCommit(
+            Order order,
+            Double latitude,
+            Double longitude
+    ) {
+
+        TransactionUtils.runAfterCommit(() -> {
+
+            DeliveryLocationEventDTO event = new DeliveryLocationEventDTO(
+                    order.getId(),
+                    latitude,
+                    longitude
+            );
+
+            messagingTemplate.convertAndSendToUser(
+                    order.getClient().getEmail(),
+                    "/queue/location",
+                    event
+            );
+
+            messagingTemplate.convertAndSend(
+                    "/topic/admin/location",
+                    event
+            );
+
+        });
+    }
+
+    public void notifyNewAvailableOrder(User deliveryman, Order order) {
+
+        TransactionUtils.runAfterCommit(() -> {
+
+            messagingTemplate.convertAndSendToUser(
+                    deliveryman.getEmail(),
+                    "/queue/new-orders",
+                    order.getId()
+            );
+
         });
     }
 }

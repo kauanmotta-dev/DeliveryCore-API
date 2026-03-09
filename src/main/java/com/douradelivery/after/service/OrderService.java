@@ -1,6 +1,7 @@
 package com.douradelivery.after.service;
 
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.model.address.entity.Address;
 import com.douradelivery.after.model.audit.enums.AuditLogAction;
 import com.douradelivery.after.model.deliverymanVerification.entity.DeliverymanVerification;
 import com.douradelivery.after.model.order.dto.OrderCreateRequestDTO;
@@ -16,9 +17,7 @@ import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.user.entity.User;
 import com.douradelivery.after.model.user.enums.UserRole;
-import com.douradelivery.after.repository.DeliverymanVerificationRepository;
-import com.douradelivery.after.repository.OrderRepository;
-import com.douradelivery.after.repository.OrderStatusHistoryRepository;
+import com.douradelivery.after.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +38,9 @@ public class OrderService {
     private final SlaService slaService;
     private final DeliverymanVerificationRepository verificationRepository;
     private final AuditLogService auditLogService;
+    private final AddressRepository addressRepository;
+    private final DeliveryMatchingService deliveryMatchingService;
+    private final DeliveryGeofenceService geofenceService;
 
     @Transactional(readOnly = true)
     private OrderResponseDTO toResponse(Order order) {
@@ -52,22 +54,35 @@ public class OrderService {
 
     public OrderResponseDTO createOrder(User client, OrderCreateRequestDTO dto) {
 
+        Address origin = addressRepository.findById(dto.originAddressId())
+                .orElseThrow(() -> new BusinessException("Origin address not found"));
+
+        if (!origin.getUser().getId().equals(client.getId())) {
+            throw new BusinessException("Address does not belong to user");
+        }
+
+        Address destination = new Address();
+
+        destination.setStreet(dto.destinationAddress().street());
+        destination.setNumber(dto.destinationAddress().number());
+        destination.setNeighborhood(dto.destinationAddress().neighborhood());
+        destination.setCity(dto.destinationAddress().city());
+        destination.setState(dto.destinationAddress().state());
+        destination.setZipCode(dto.destinationAddress().zipCode());
+        destination.setLatitude(dto.destinationAddress().latitude());
+        destination.setLongitude(dto.destinationAddress().longitude());
+
         Order order = new Order();
+
         order.setClient(client);
-        order.setOriginAddress(dto.originAddress());
-        order.setDestinationAddress(dto.destinationAddress());
+        order.setOriginAddress(origin);
+        order.setDestinationAddress(destination);
+
         order.initialize();
 
         orderRepository.save(order);
 
         registerHistory(order, OrderStatus.WAITING_PAYMENT, client);
-        auditLogService.log(
-                AuditLogAction.ORDER_CREATED,
-                "Order",
-                order.getId(),
-                client.getId(),
-                "Order created"
-        );
 
         return toResponse(order);
     }
@@ -215,6 +230,8 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
 
+        geofenceService.validateDeliveryLocation(order);
+
         order.deliver(deliveryman);
 
         orderRepository.save(order);
@@ -241,6 +258,8 @@ public class OrderService {
 
         order.markAsPaid();
         orderRepository.save(order);
+
+        deliveryMatchingService.findNearbyDeliverymen(order);
 
         registerHistory(order, OrderStatus.AVAILABLE, null);
         notificationService.notifyOrderEventAfterCommit(
