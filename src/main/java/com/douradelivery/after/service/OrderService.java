@@ -16,6 +16,7 @@ import com.douradelivery.after.model.order.enums.OrderEventType;
 import com.douradelivery.after.model.order.enums.OrderStatus;
 import com.douradelivery.after.model.payment.enums.PaymentStatus;
 import com.douradelivery.after.model.user.entity.User;
+import com.douradelivery.after.model.user.enums.DeliverymanStatus;
 import com.douradelivery.after.model.user.enums.UserRole;
 import com.douradelivery.after.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -148,6 +149,10 @@ public class OrderService {
             throw new BusinessException("User is not a deliveryman");
         }
 
+        if (!deliveryman.isEnabled()) {
+            throw new BusinessException("Deliveryman account is disabled");
+        }
+
         DeliverymanVerification verification =
                 verificationRepository
                         .findTopByUserOrderByCreatedAtDesc(deliveryman)
@@ -155,6 +160,12 @@ public class OrderService {
                                 new BusinessException("Deliveryman verification not found"));
 
         verification.ensureApproved();
+
+        DeliverymanStatus status = deliveryman.getDeliverymanStatus();
+
+        if (status != DeliverymanStatus.ONLINE) {
+            throw new BusinessException("Deliveryman must be ONLINE to accept orders");
+        }
 
         order.accept(deliveryman);
 

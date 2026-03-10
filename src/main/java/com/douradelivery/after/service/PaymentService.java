@@ -2,6 +2,7 @@ package com.douradelivery.after.service;
 
 import com.douradelivery.after.config.webhook.WebhookValidator;
 import com.douradelivery.after.exception.exceptions.BusinessException;
+import com.douradelivery.after.exception.exceptions.ResourceNotFoundException;
 import com.douradelivery.after.model.audit.enums.AuditLogAction;
 import com.douradelivery.after.model.order.entity.Order;
 import com.douradelivery.after.model.order.enums.OrderStatus;
@@ -28,7 +29,6 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private final WebhookValidator webhookValidator;
     private final AuditLogService auditService;
 
     @Transactional(readOnly = true)
@@ -128,55 +128,47 @@ public class PaymentService {
 
     public Long handlePixWebhook(PaymentWebhookRequestDTO event) {
 
-        webhookValidator.validate(event.toString(), event.secret());
+        Payment payment = paymentRepository
+                .findByExternalPaymentId(event.externalPaymentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
 
-        if (!"PAYMENT_CONFIRMED".equals(event.status())) {
+        if (payment.getOrder().getStatus() != OrderStatus.WAITING_PAYMENT) {
+            throw new BusinessException("Order is not waiting for payment");
+        }
+
+        if (payment.getStatus() == PaymentStatus.CONFIRMED) {
+            return payment.getOrder().getId();
+        }
+
+        if (payment.getStatus() == PaymentStatus.EXPIRED ||
+                payment.getStatus() == PaymentStatus.FAILED) {
             return null;
         }
 
-        Payment payment = paymentRepository.findById(event.paymentId())
-                .orElseThrow(() -> new BusinessException("Payment not found"));
-
-        Order order = payment.getOrder();
-
-        // 🔒 1. Blindagem contra pedido cancelado/refundado
-        if (order.getStatus() == OrderStatus.CANCELED ||
-                order.getStatus() == OrderStatus.REFUNDED) {
-            throw new BusinessException("Order already closed");
-        }
-
-        // 🔒 2. Blindagem contra pagamento duplicado
-        if (payment.getStatus() == PaymentStatus.CONFIRMED) {
-            return null; // idempotente
-        }
-
-        // 🔒 3. Só pode confirmar se estiver PENDING
-        if (payment.getStatus() != PaymentStatus.PENDING) {
-            throw new BusinessException("Invalid payment state");
-        }
-
-        // 🔒 4. Valor precisa bater exatamente
         if (payment.getAmount().compareTo(event.amount()) != 0) {
-            throw new BusinessException("Invalid payment amount");
+            throw new BusinessException("Payment amount mismatch");
         }
 
-        // 🔒 5. Pedido deve estar aguardando pagamento
-        if (order.getStatus() != OrderStatus.WAITING_PAYMENT) {
-            throw new BusinessException("Order not waiting payment");
+        switch (event.status()) {
+
+            case "CONFIRMED" -> payment.confirm();
+
+            case "FAILED" -> payment.markFailed("Gateway failure");
+
+            default -> throw new BusinessException("Unknown payment status");
         }
 
-        payment.confirm();
         paymentRepository.save(payment);
 
         auditService.log(
                 AuditLogAction.PAYMENT_CONFIRMED,
                 "Payment",
                 payment.getId(),
-                null,
+                payment.getOrder().getClient().getId(),
                 "Payment confirmed via webhook"
         );
 
-        return order.getId();
+        return payment.getOrder().getId();
     }
 }
 

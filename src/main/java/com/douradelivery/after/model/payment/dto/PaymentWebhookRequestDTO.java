@@ -6,6 +6,5 @@ public record PaymentWebhookRequestDTO(
         String externalPaymentId,
         Long paymentId,
         BigDecimal amount,
-        String status,
-        String secret
+        String status
 ) {}

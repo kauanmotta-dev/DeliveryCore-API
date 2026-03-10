@@ -56,12 +56,14 @@ public class DeliveryLocationService {
                             return newLocation;
                         });
 
+        LocalDateTime now = LocalDateTime.now();
+
         if (location.getUpdatedAt() != null) {
 
             long seconds =
                     Duration.between(
                             location.getUpdatedAt(),
-                            LocalDateTime.now()
+                            now
                     ).getSeconds();
 
             if (seconds < MIN_UPDATE_SECONDS) {
@@ -71,7 +73,7 @@ public class DeliveryLocationService {
 
         location.setLatitude(dto.latitude());
         location.setLongitude(dto.longitude());
-        location.setUpdatedAt(LocalDateTime.now());
+        location.setUpdatedAt(now);
 
         locationRepository.save(location);
 

@@ -24,6 +24,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             LocalDateTime time
     );
 
+    Optional<Payment> findByExternalPaymentId(String externalPaymentId);
+
         @Query("""
         SELECT
             COALESCE(SUM(p.amount), 0),

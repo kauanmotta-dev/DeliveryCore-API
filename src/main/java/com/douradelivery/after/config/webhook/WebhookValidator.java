@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Base64;
 
 @Component
@@ -21,14 +22,16 @@ public class WebhookValidator {
 
             String expectedSignature = generateHmac(payload, secret);
 
-            if (!expectedSignature.equals(receivedSignature)) {
+            if (!MessageDigest.isEqual(
+                    expectedSignature.getBytes(StandardCharsets.UTF_8),
+                    receivedSignature.getBytes(StandardCharsets.UTF_8))) {
+
                 throw new BusinessException("Invalid webhook signature");
             }
 
         } catch (Exception e) {
             throw new BusinessException("Webhook validation failed");
         }
-
     }
 
     private String generateHmac(String payload, String secret) throws Exception {
@@ -45,5 +48,4 @@ public class WebhookValidator {
 
         return Base64.getEncoder().encodeToString(rawHmac);
     }
-
 }
