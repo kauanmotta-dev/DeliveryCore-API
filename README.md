@@ -1,6 +1,6 @@
-# 🍔 DouraDelivery — Backend API
+# 🍔 DeliveryCore API — Backend
 
-DouraDelivery é uma API backend desenvolvida em **Java com Spring Boot** que simula o funcionamento de uma plataforma de delivery no estilo marketplace, semelhante a serviços como iFood ou Uber Eats.
+DeliveryCore API é uma API backend desenvolvida em **Java com Spring Boot** que simula o funcionamento de uma plataforma de delivery no estilo marketplace, semelhante a serviços como iFood ou Uber Eats.
 
 O objetivo do projeto é construir um backend robusto com foco em:
 
