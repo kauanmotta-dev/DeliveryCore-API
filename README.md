@@ -1,236 +1,157 @@
-# DouraDelivery Back
+# 🍔 DeliveryCore API — Backend
 
-API backend em Java/Spring Boot para simular um sistema transacional de delivery, com foco em consistencia de estados, seguranca de pagamento e regras de negocio reais.
+DeliveryCore API é uma API backend desenvolvida em **Java com Spring Boot** que simula o funcionamento de uma plataforma de delivery no estilo marketplace, semelhante a serviços como iFood ou Uber Eats.
 
-Este repositorio faz parte do meu portfolio de backend e esta em evolucao continua.
+O objetivo do projeto é construir um backend robusto com foco em:
 
-## Visao Geral
+* arquitetura bem definida
+* consistência transacional
+* segurança de domínio
+* integridade de dados
+* modelagem correta de estados de pedido e pagamento
 
-O projeto implementa o nucleo operacional de um app de delivery:
+O projeto é desenvolvido como **estudo avançado de engenharia backend**, simulando desafios reais encontrados em plataformas de delivery.
 
-- autenticacao e autorizacao com JWT
-- criacao e ciclo de vida de pedidos
-- fluxo de pagamento PIX com webhook assinado
-- matching de entregador por proximidade
-- tracking de localizacao em tempo real
-- reviews apos entrega
-- auditoria de eventos importantes
+---
 
-O objetivo principal e demonstrar capacidade de modelar dominio, tratar concorrencia e manter invariantes de negocio em um sistema stateful.
+# 🧠 Arquitetura e Conceitos
 
-## Stack Tecnica
+O backend foi projetado utilizando princípios de engenharia de software aplicados a sistemas transacionais:
 
-- Java 21
-- Spring Boot 3.3.6
-- Spring Web
-- Spring Security
-- Spring Data JPA (Hibernate)
-- Spring Validation
-- Spring WebSocket (STOMP)
-- JWT (jjwt 0.11.5)
-- Springdoc OpenAPI (Swagger)
-- MySQL
-- Maven
+* Clean Architecture
+* Domain Modeling
+* Aggregate Roots
+* State Machines
+* Consistência transacional
+* Idempotência
+* Controle de concorrência com Optimistic Locking
+* Integração via Webhooks
+* APIs REST
 
-## Arquitetura e Decisoes de Engenharia
+---
 
-O codigo foi estruturado em camadas claras (controller, service, repository, model/config), com regras de negocio concentradas no dominio e nos servicos transacionais.
+# 🚚 Modelo de Negócio
 
-Pontos de arquitetura ja implementados:
+O sistema segue o modelo **Marketplace de Delivery**.
 
-- State machine para `Order` e `Payment`
-- Invariantes fortes entre estados de pedido e pagamento
-- Optimistic locking com `@Version` (pedido e pagamento)
-- Idempotencia de pagamento via `idempotencyKey`
-- `externalPaymentId` com unicidade no banco
-- Webhook com validacao de assinatura HMAC-SHA256
-- Expiracao automatica de pagamento por scheduler
-- Ownership checks (usuario so acessa recursos que pertencem a ele)
-- Seguranca por role (`ADMIN`, `CLIENT`, `DELIVERYMAN`)
+Fluxo principal:
 
-## Fluxos de Negocio Implementados
+Cliente cria pedido
+↓
+Restaurante recebe e aceita pedido
+↓
+Restaurante prepara pedido
+↓
+Entregador aceita entrega
+↓
+Pedido é entregue ao cliente
 
-### 1. Fluxo de Pedido
+---
 
-`WAITING_PAYMENT` -> `AVAILABLE` -> `ACCEPTED` -> `IN_DELIVERY` -> `DELIVERED`
+# 🏗 Estrutura de Domínio
 
-Cancelamentos e reembolso tambem fazem parte do fluxo, com regras especificas por estado.
+Principais entidades do sistema:
 
-### 2. Fluxo de Pagamento
+* User
+* Customer
+* Deliveryman
+* Restaurant
+* Order
+* Payment
+* Review
 
-`PENDING` -> `CONFIRMED`
+O sistema também utiliza **máquinas de estado** para garantir consistência nos fluxos de pedido e pagamento.
 
-Estados alternativos:
+---
 
-- `FAILED`
-- `EXPIRED`
-- `REFUNDED`
+# 💳 Segurança Financeira
 
-### 3. Webhook de Pagamento (PIX)
+O núcleo financeiro da aplicação foi projetado para evitar inconsistências comuns em sistemas de pagamento.
 
-Processo:
+Principais mecanismos implementados ou planejados:
 
-- valida assinatura (`X-Signature`)
-- desserializa payload
-- confirma pagamento idempotentemente
-- promove pedido para estado pagavel/disponivel
+* idempotência de webhook
+* proteção contra replay attack
+* controle de concorrência com optimistic locking
+* validação de estados de pagamento
+* sincronização entre estados de Order e Payment
 
-### 4. Regras de Cancelamento
+---
 
-- cliente pode cancelar pedido em estados permitidos
-- cancelamento pode gerar taxa
-- pagamento confirmado pode ser reembolsado parcialmente
-- eventos sao auditados
+# 🧰 Tecnologias Utilizadas
 
-### 5. Entregador e Tracking
+## Backend
 
-- entregador precisa estar online e aprovado para aceitar pedido
-- matching por proximidade geografica
-- atualizacao de localizacao com throttle minimo de 5 segundos
-- validacao de geofence para concluir entrega
+* Java
+* Spring Boot
+* Spring Security
+* Spring Data JPA
+* Hibernate
 
-### 6. Reviews
+## Banco de Dados
 
-- review somente quando o pedido esta `DELIVERED`
-- somente participantes do pedido podem avaliar
-- uma review por usuario por pedido
+* PostgreSQL
+* MySQL
+* MariaDB
+* MongoDB
+* Redis
 
-## Endpoints Principais
+## Arquitetura
 
-### Auth
+* REST APIs
+* Webhooks
+* JWT
+* Clean Architecture
+* Domain Modeling
+* State Machines
+* Transaction Management
+* Optimistic Locking
+* Idempotency
 
-- `POST /auth/login`
+## DevOps
 
-### Usuarios
+* Git
+* GitHub
+* Docker
+* Docker Compose
 
-- `POST /user/create`
-- `GET /user/me`
-- `PUT /user/me`
-- `PUT /user/me/updatePassword`
-- `GET /user` (admin)
-- `PATCH /user/{id}/changeStatus` (admin)
+## Ferramentas
 
-### Pedidos
+* Maven
+* Postman
+* Swagger / OpenAPI
 
-- `POST /order/create/pr%C3%A9-pago` (no codigo a rota literal esta com acento)
-- `POST /order/{id}/cancel`
-- `POST /order/{id}/accept`
-- `POST /order/{id}/cancel-by-deliveryman`
-- `POST /order/{id}/start`
-- `POST /order/{id}/deliver`
-- `GET /order/{id}/history`
-- `GET /order/available`
-- `GET /order/me/active`
-- `GET /order/me`
-- `GET /order/my-deliveries`
-- `GET /order` (admin)
+---
 
-### Pagamentos
+# 🚀 Objetivo do Projeto
 
-- `POST /payments/order/{orderId}`
-- `POST /webhooks/payments/pix`
+Este projeto tem como objetivo simular a construção de um backend real de marketplace de delivery, abordando desafios como:
 
-### Outros Modulos
+* consistência de pedidos
+* pagamentos assíncronos
+* concorrência
+* escalabilidade de domínio
+* segurança de API
 
-- `POST /deliveryman/status/online`
-- `POST /deliveryman/status/offline`
-- `POST /location/order/{orderId}`
-- `POST /deliveryman-verification`
-- `GET /deliveryman-verification`
-- `GET /deliveryman-verification/{id}`
-- `POST /deliveryman-verification/{id}/approve`
-- `POST /deliveryman-verification/{id}/reject`
-- `POST /deliveryman-verification/{id}/suspend`
-- `POST /reviews`
-- `GET /reviews/users/{userId}/rating`
-- `POST /addresses`
-- `GET /addresses/me`
-- `GET /admin/sla/users`
-- `GET /reports/financial`
+Ele também serve como **projeto de portfólio para engenharia backend em Java**.
 
-## Como Executar Localmente
+---
 
-### Requisitos
+# 🔮 Próximas Evoluções
 
-- JDK 21
-- MySQL rodando localmente
-- Maven (ou wrapper `mvnw`/`mvnw.cmd`)
+O projeto continuará evoluindo com a adição de componentes essenciais de um marketplace real:
 
-### Banco e Configuracao
+* catálogo de restaurantes
+* menus e produtos
+* itens de pedido
+* cálculo de taxa de entrega
+* busca de restaurantes por localização
+* sistema de notificações
+* observabilidade (Spring Actuator / Prometheus)
+* testes automatizados
 
-Configuracao padrao atual:
+---
 
-- host: `localhost`
-- porta: `3306`
-- database: `railway`
-- usuario: `root`
-- senha: `password`
-- porta da API: `8081`
-
-Variavel opcional para webhook:
-
-- `PAYMENT_WEBHOOK_SECRET` (se nao definida, usa `local-secret`)
-
-### Rodar o projeto
-
-Windows:
-
-```bash
-mvnw.cmd spring-boot:run
-```
-
-Linux/macOS:
-
-```bash
-./mvnw spring-boot:run
-```
-
-Build:
-
-```bash
-./mvnw clean package
-```
-
-## Documentacao da API
-
-- Swagger UI: `http://localhost:8081/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8081/v3/api-docs`
-
-## Seguranca
-
-Implementado:
-
-- autenticacao JWT stateless
-- autorizacao por role com `@PreAuthorize`
-- ownership checks em recursos sensiveis
-- webhook assinado (HMAC)
-- tratamento de `OptimisticLockException` com HTTP 409
-- autenticacao de handshake para WebSocket
-
-Ainda em evolucao:
-
-- rate limiting global e por endpoint critico
-- revogacao de JWT/token blacklist
-- estrategias adicionais anti-replay para webhook
-
-## Proximos Passos (Roadmap)
-
-Evolucoes planejadas para chegar ao escopo completo de marketplace:
-
-- agregado de restaurante (owner, endereco, horarios, raio)
-- catalogo (menu, categoria, produto)
-- carrinho real com snapshot de item/preco
-- disponibilidade e despacho avancado de entregadores
-- calculo de taxa de entrega por distancia/regra
-- busca geoespacial de restaurantes
-- notificacoes mais robustas (com persistencia)
-- observabilidade (metricas e tracing)
-- suite de testes automatizados
-
-## Observacoes de Portfolio
-
-Este projeto esta sendo desenvolvido de forma incremental. O foco atual e consolidar um nucleo robusto de pedidos/pagamentos antes da expansao para marketplace completo.
-
-## Autor
+# 👨‍💻 Autor
 
 Kauan Motta

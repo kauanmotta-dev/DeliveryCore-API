@@ -8,10 +8,10 @@
 		<version>3.3.6</version>
 		<relativePath/>
 	</parent>
-	<groupId>com.douradeliveryback</groupId>
-	<artifactId>douradeliveryback</artifactId>
+	<groupId>com.deliverycore</groupId>
+	<artifactId>deliverycore-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>douradeliveryback</name>
+	<name>DeliveryCore API</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>
