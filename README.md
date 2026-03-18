@@ -234,3 +234,4 @@ Este projeto esta sendo desenvolvido de forma incremental. O foco atual e consol
 ## Autor
 
 Kauan Motta
+Backend Java Developer
