@@ -155,3 +155,4 @@ O projeto continuará evoluindo com a adição de componentes essenciais de um m
 # 👨‍💻 Autor
 
 Kauan Motta
+Backend Java Developer
